@@ -1,46 +1,58 @@
 class_name Bullet
 extends Area2D
 
-## Snaryad / O'q Skripti (Godot 4.x)
-## Yo'nalish bo'yicha uchadi, dushmanga yoki devorga tekkanda zararlaydi va yo'qoladi.
+## Snaryad / O'q Skripti (Godot 4.x - Object Pooling qo'llab-quvvatlaydi)
+## Yo'nalish bo'yicha uchadi, dushman, devor yoki qutilarga tekkanda zararlaydi.
 
-@export var speed: float = 800.0
-@export var damage: int = 20
+@export var speed: float = 850.0
+@export var damage: int = 25
 var direction: Vector2 = Vector2.ZERO
+var lifetime: float = 2.5
+var current_lifetime: float = 0.0
+var is_active: bool = true
 
 func _ready() -> void:
-	# O'q yo'nalishiga qarab burilishi
-	if direction != Vector2.ZERO:
-		rotation = direction.angle()
-
-	# Dushmanga yoki devorga tekkanini aniqlash signallari
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
+	activate()
 
-	# O'q 3 sekunddan keyin o'chib ketadi (xotirani band qilmasligi uchun)
-	await get_tree().create_timer(3.0).timeout
-	if is_instance_valid(self):
-		queue_free()
+func activate() -> void:
+	current_lifetime = 0.0
+	is_active = true
+	set_physics_process(true)
+	visible = true
 
 func _physics_process(delta: float) -> void:
-	# O'qni ko'rsatilgan yo'nalish bo'yicha uchirish
 	position += direction * speed * delta
+	current_lifetime += delta
+	if current_lifetime >= lifetime:
+		deactivate()
 
-# PhysicsBody2D (CharacterBody2D, TileMap, StaticBody2D) bilan to'qnashuv
+func deactivate() -> void:
+	if not is_active:
+		return
+	is_active = false
+	visible = false
+	set_physics_process(false)
+	global_position = Vector2(-9999, -9999)
+	# Agar alohida chaqirilgan bo'lsa (pool'siz), xotirani bo'shatadi
+	if not (get_parent() is BulletPool):
+		queue_free()
+
 func _on_body_entered(body: Node2D) -> void:
-	if body.is_in_group("enemies"):
-		# Dushmanga zarar yetkazish funksiyasi
-		if body.has_method("take_damage"):
-			body.take_damage(damage)
-		queue_free() # O'q tegishi bilan yo'qoladi
+	if not is_active:
+		return
+	if body.is_in_group("enemies") or body.is_in_group("destructible") or body.has_method("take_damage"):
+		body.take_damage(damage)
+		deactivate()
 	elif body.is_in_group("walls"):
-		queue_free() # Devorga tekkanida ham yo'qoladi
+		deactivate()
 
-# Area2D bilan to'qnashuv
 func _on_area_entered(area: Area2D) -> void:
-	if area.is_in_group("enemies"):
-		if area.has_method("take_damage"):
-			area.take_damage(damage)
-		queue_free()
+	if not is_active:
+		return
+	if area.is_in_group("enemies") or area.is_in_group("destructible") or area.has_method("take_damage"):
+		area.take_damage(damage)
+		deactivate()
 	elif area.is_in_group("walls"):
-		queue_free()
+		deactivate()

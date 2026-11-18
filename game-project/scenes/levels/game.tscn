@@ -1,42 +1,34 @@
-[gd_scene load_steps=21 format=3 uid="uid://game_level_scene_godot4"]
+[gd_scene load_steps=18 format=3 uid="uid://game_level_scene_godot4"]
 
 [ext_resource type="Script" path="res://scripts/gameplay/game_level.gd" id="1_level"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/bg_sky.png" id="2_bg_sky"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/bg_hills.png" id="3_bg_hills"]
-[ext_resource type="Texture2D" path="res://assets/sprites/wall.png" id="4_wall_tex"]
-[ext_resource type="Script" path="res://scripts/gameplay/coin.gd" id="5_coin_script"]
-[ext_resource type="Texture2D" path="res://assets/sprites/coin.png" id="6_coin_tex"]
-[ext_resource type="Script" path="res://scripts/gameplay/health_kit.gd" id="7_health_script"]
-[ext_resource type="Texture2D" path="res://assets/sprites/health_kit.png" id="8_health_tex"]
-[ext_resource type="Script" path="res://scripts/ai/enemy_dummy.gd" id="9_enemy_script"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemy.png" id="10_enemy_tex"]
-[ext_resource type="Script" path="res://scripts/gameplay/player_controller.gd" id="11_player_script"]
-[ext_resource type="Texture2D" path="res://assets/sprites/player.png" id="12_player_tex"]
-[ext_resource type="Texture2D" path="res://assets/sprites/weapon.png" id="13_weapon_tex"]
-[ext_resource type="Script" path="res://scripts/systems/parallax_controller.gd" id="14_parallax"]
-[ext_resource type="Script" path="res://scripts/gameplay/reward.gd" id="15_reward_script"]
-[ext_resource type="Texture2D" path="res://assets/sprites/weapon_upgrade.png" id="16_upgrade_tex"]
+[ext_resource type="Script" path="res://scripts/systems/parallax_controller.gd" id="4_parallax"]
+[ext_resource type="Texture2D" path="res://assets/sprites/wall.png" id="5_wall_tex"]
+[ext_resource type="PackedScene" uid="uid://crate_scene" path="res://scenes/objects/crate.tscn" id="6_crate"]
+[ext_resource type="PackedScene" uid="uid://explosive_barrel_scene" path="res://scenes/objects/explosive_barrel.tscn" id="7_barrel"]
+[ext_resource type="PackedScene" uid="uid://spike_trap_scene" path="res://scenes/objects/spike_trap.tscn" id="8_spike"]
+[ext_resource type="PackedScene" uid="uid://reward_item_scene" path="res://scenes/objects/reward_item.tscn" id="9_reward"]
+[ext_resource type="PackedScene" uid="uid://enemy_humanoid_scene" path="res://scenes/enemies/enemy_humanoid.tscn" id="10_enemy"]
+[ext_resource type="PackedScene" uid="uid://player_scene_godot4" path="res://scenes/player/player.tscn" id="11_player"]
+[ext_resource type="Script" path="res://scripts/systems/bullet_pool.gd" id="12_pool"]
+[ext_resource type="PackedScene" uid="uid://game_ui_manager_scene" path="res://scenes/ui/game_ui.tscn" id="13_ui"]
+[ext_resource type="Script" path="res://scripts/gameplay/reward.gd" id="14_reward_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/weapon_upgrade.png" id="15_upgrade_tex"]
+[ext_resource type="Texture2D" path="res://assets/sprites/health_kit.png" id="16_health_tex"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_Wall"]
 size = Vector2(64, 64)
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_Coin"]
-radius = 12.0
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_HealthKit"]
-size = Vector2(24, 24)
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_Enemy"]
-radius = 16.0
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_Player"]
-radius = 15.0
-
 [node name="Game" type="Node2D"]
 script = ExtResource("1_level")
 
+[node name="BulletPool" type="Node2D" parent="." groups=["bullet_pool"]]
+script = ExtResource("12_pool")
+pool_size = 100
+
 [node name="ParallaxBackground" type="ParallaxBackground" parent="."]
-script = ExtResource("14_parallax")
+script = ExtResource("4_parallax")
 
 [node name="ParallaxLayer1" type="ParallaxLayer" parent="ParallaxBackground"]
 motion_scale = Vector2(0.2, 0.2)
@@ -45,7 +37,6 @@ motion_mirroring = Vector2(1024, 1024)
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer1"]
 texture_filter = 1
 texture_repeat = 2
-position = Vector2(0, 0)
 scale = Vector2(2, 2)
 texture = ExtResource("2_bg_sky")
 centered = false
@@ -71,7 +62,7 @@ collision_mask = 9
 
 [node name="Sprite2D" type="Sprite2D" parent="Obstacles/Wall1"]
 texture_filter = 1
-texture = ExtResource("4_wall_tex")
+texture = ExtResource("5_wall_tex")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Wall1"]
 shape = SubResource("RectangleShape2D_Wall")
@@ -83,151 +74,45 @@ collision_mask = 9
 
 [node name="Sprite2D" type="Sprite2D" parent="Obstacles/Wall2"]
 texture_filter = 1
-texture = ExtResource("4_wall_tex")
+texture = ExtResource("5_wall_tex")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Wall2"]
 shape = SubResource("RectangleShape2D_Wall")
 
+[node name="Crate1" parent="Obstacles" instance=ExtResource("6_crate")]
+position = Vector2(480, 220)
+
+[node name="Crate2" parent="Obstacles" instance=ExtResource("6_crate")]
+position = Vector2(480, 260)
+
+[node name="ExplosiveBarrel1" parent="Obstacles" instance=ExtResource("7_barrel")]
+position = Vector2(650, 340)
+
+[node name="SpikeTrap1" parent="Obstacles" instance=ExtResource("8_spike")]
+position = Vector2(400, 350)
+
 [node name="Rewards" type="Node2D" parent="."]
 
-[node name="Coin" type="Area2D" parent="Rewards" groups=["rewards"]]
-position = Vector2(520, 180)
-collision_layer = 4
-collision_mask = 1
-script = ExtResource("5_coin_script")
+[node name="Coin" parent="Rewards" instance=ExtResource("9_reward")]
+position = Vector2(540, 180)
 
-[node name="Sprite2D" type="Sprite2D" parent="Rewards/Coin"]
-texture_filter = 1
-texture = ExtResource("6_coin_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Rewards/Coin"]
-shape = SubResource("CircleShape2D_Coin")
-
-[node name="HealthKit" type="Area2D" parent="Rewards" groups=["rewards"]]
+[node name="HealthKit" parent="Rewards" instance=ExtResource("9_reward")]
 position = Vector2(280, 420)
-collision_layer = 4
-collision_mask = 1
-script = ExtResource("7_health_script")
+reward_type = 1
 
-[node name="Sprite2D" type="Sprite2D" parent="Rewards/HealthKit"]
-texture_filter = 1
-texture = ExtResource("8_health_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Rewards/HealthKit"]
-shape = SubResource("RectangleShape2D_HealthKit")
-
-[node name="WeaponUpgrade" type="Area2D" parent="Rewards" groups=["rewards"]]
+[node name="WeaponUpgrade" parent="Rewards" instance=ExtResource("9_reward")]
 position = Vector2(460, 480)
-collision_layer = 4
-collision_mask = 1
-script = ExtResource("15_reward_script")
 reward_type = 2
-
-[node name="Sprite2D" type="Sprite2D" parent="Rewards/WeaponUpgrade"]
-texture_filter = 1
-texture = ExtResource("16_upgrade_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Rewards/WeaponUpgrade"]
-shape = SubResource("CircleShape2D_Coin")
 
 [node name="Enemies" type="Node2D" parent="."]
 
-[node name="Enemy1" type="CharacterBody2D" parent="Enemies" groups=["enemies"]]
+[node name="EnemyHumanoid1" parent="Enemies" instance=ExtResource("10_enemy")]
 position = Vector2(620, 240)
-collision_layer = 2
-collision_mask = 9
-script = ExtResource("9_enemy_script")
 
-[node name="Sprite2D" type="Sprite2D" parent="Enemies/Enemy1"]
-texture_filter = 1
-texture = ExtResource("10_enemy_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemies/Enemy1"]
-shape = SubResource("CircleShape2D_Enemy")
-
-[node name="Enemy2" type="CharacterBody2D" parent="Enemies" groups=["enemies"]]
+[node name="EnemyHumanoid2" parent="Enemies" instance=ExtResource("10_enemy")]
 position = Vector2(850, 450)
-collision_layer = 2
-collision_mask = 9
-script = ExtResource("9_enemy_script")
 
-[node name="Sprite2D" type="Sprite2D" parent="Enemies/Enemy2"]
-texture_filter = 1
-texture = ExtResource("10_enemy_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemies/Enemy2"]
-shape = SubResource("CircleShape2D_Enemy")
-
-[node name="Player" type="CharacterBody2D" parent="." groups=["players"]]
+[node name="Player" parent="." instance=ExtResource("11_player")]
 position = Vector2(180, 260)
-collision_layer = 1
-collision_mask = 6
-script = ExtResource("11_player_script")
 
-[node name="Sprite2D" type="Sprite2D" parent="Player"]
-texture_filter = 1
-texture = ExtResource("12_player_tex")
-
-[node name="WeaponSprite" type="Sprite2D" parent="Player"]
-texture_filter = 1
-position = Vector2(14, 4)
-texture = ExtResource("13_weapon_tex")
-
-[node name="Muzzle" type="Marker2D" parent="Player"]
-position = Vector2(26, 4)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
-shape = SubResource("CircleShape2D_Player")
-
-[node name="Camera2D" type="Camera2D" parent="Player"]
-position_smoothing_enabled = true
-zoom = Vector2(1.2, 1.2)
-
-[node name="HUD" type="CanvasLayer" parent="."]
-
-[node name="TopLeft" type="Control" parent="HUD"]
-layout_mode = 3
-anchors_preset = 0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 320.0
-offset_bottom = 120.0
-
-[node name="VBox" type="VBoxContainer" parent="HUD/TopLeft"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="HPBar" type="ProgressBar" parent="HUD/TopLeft/VBox"]
-custom_minimum_size = Vector2(0, 18)
-layout_mode = 2
-value = 100.0
-show_percentage = false
-
-[node name="StaminaBar" type="ProgressBar" parent="HUD/TopLeft/VBox"]
-custom_minimum_size = Vector2(0, 12)
-layout_mode = 2
-value = 100.0
-show_percentage = false
-
-[node name="StatsLabel" type="Label" parent="HUD/TopLeft/VBox"]
-layout_mode = 2
-text = "Tangalar: 0 | Ball: 0 | Dushmanlar: 2"
-
-[node name="TipLabel" type="Label" parent="HUD"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -280.0
-offset_top = -40.0
-offset_right = 280.0
-offset_bottom = -15.0
-grow_horizontal = 2
-grow_vertical = 0
-text = "WASD: Harakat | Shift: Yugurish | Sichqoncha: Nishon & Otish"
-horizontal_alignment = 1
+[node name="GameUI" parent="." instance=ExtResource("13_ui")]

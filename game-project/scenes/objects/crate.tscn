@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://crate_scene"]
+
+[ext_resource type="Script" path="res://scripts/gameplay/crate.gd" id="1_crate"]
+[ext_resource type="Texture2D" path="res://assets/sprites/destructible_crate.png" id="2_crate_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(28, 28)
+
+[node name="Crate" type="StaticBody2D" groups=["destructible", "walls"]]
+collision_layer = 2
+collision_mask = 9
+script = ExtResource("1_crate")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_crate_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")
