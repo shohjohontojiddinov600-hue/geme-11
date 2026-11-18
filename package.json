@@ -1,0 +1,23 @@
+{
+  "name": "mythic-realms-capstone",
+  "version": "1.0.0",
+  "description": "Mythic Realms — 2D Multiplayer Survival & Crafting Sandbox Game (Capstone Project)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node tests/run-tests.js"
+  },
+  "keywords": [
+    "multiplayer",
+    "2d-game",
+    "survival",
+    "sandbox",
+    "sqlite-wal",
+    "capstone"
+  ],
+  "author": "KIUT ISE Student",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

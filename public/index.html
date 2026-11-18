@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mythic Realms — 2D Multiplayer Survival Sandbox (Capstone Project)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Game Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- In-game HUD Overlay -->
+  <div id="hudOverlay">
+    <!-- Top Left Player Stats -->
+    <div class="stats-panel hud-interactive">
+      <div class="player-header">
+        <span id="playerNameDisplay">Qahramon</span>
+        <span style="font-size: 11px; color: #2ecc71;" id="fpsBadge">● 60 FPS | 30Hz</span>
+      </div>
+
+      <!-- Health Bar -->
+      <div class="stat-bar-container">
+        <div class="stat-bar-label">
+          <span>❤️ Salomatlik (HP)</span>
+          <span id="hpText">100/100</span>
+        </div>
+        <div class="stat-bar"><div id="hpFill" class="stat-fill hp-fill"></div></div>
+      </div>
+
+      <!-- Hunger Bar -->
+      <div class="stat-bar-container">
+        <div class="stat-bar-label">
+          <span>🍗 Ochlik</span>
+          <span id="hungerText">100/100</span>
+        </div>
+        <div class="stat-bar"><div id="hungerFill" class="stat-fill hunger-fill"></div></div>
+      </div>
+
+      <!-- Stamina Bar -->
+      <div class="stat-bar-container">
+        <div class="stat-bar-label">
+          <span>⚡ Chidamlilik</span>
+          <span id="staminaText">100/100</span>
+        </div>
+        <div class="stat-bar"><div id="staminaFill" class="stat-fill stamina-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Top Center World & Time Status -->
+    <div class="world-status-bar">
+      <span id="timeDisplay">☀️ Kun (02:00)</span>
+      <span style="color: #7f8c8d;">|</span>
+      <span id="biomeDisplay">🌲 Yashil O'rmon (Whispering Woods)</span>
+      <button id="menuBtn" class="cat-btn hud-interactive" style="margin-left: 8px; padding: 2px 8px;">⚙️ Pauza</button>
+    </div>
+
+    <!-- Top Right Mini-Map -->
+    <div class="minimap-panel hud-interactive">
+      <canvas id="minimapCanvas" width="130" height="130"></canvas>
+      <div style="font-size: 10px; color: #95a5a6; margin-top: 4px;">Mini-xarita (Radar)</div>
+    </div>
+
+    <!-- Bottom Center Action Quickslots (1-8) -->
+    <div class="action-bar-container hud-interactive" id="quickslotsContainer"></div>
+
+    <!-- Bottom Left Chat / Event Log -->
+    <div class="event-log" id="eventLog"></div>
+
+    <!-- Mobile Virtual Touch Controls -->
+    <div class="mobile-controls">
+      <div class="dpad">
+        <div></div><button class="dpad-btn" id="dpadUp">▲</button><div></div>
+        <button class="dpad-btn" id="dpadLeft">◀</button><div></div><button class="dpad-btn" id="dpadRight">▶</button>
+        <div></div><button class="dpad-btn" id="dpadDown">▼</button><div></div>
+      </div>
+      <div class="action-touch-btns">
+        <button class="touch-action-btn" id="touchAttackBtn" style="background:#e74c3c;">⚔️ Zarba</button>
+        <button class="touch-action-btn" id="touchInteractBtn" style="background:#3498db;">📦 E / Och</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. Lobby / Character Create Modal -->
+  <div class="modal-backdrop" id="lobbyModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 style="color: #f39c12; font-size: 20px;">⚔️ MYTHIC REALMS</h2>
+          <div style="font-size: 12px; color: #3498db; margin-top: 2px;">2D Multiplayer Survival & Crafting Sandbox — Capstone Loyiha</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="usernameInput">O'yinchi nomi (Character Name):</label>
+        <input type="text" id="usernameInput" class="form-input" placeholder="Ismingizni kiriting..." value="Jasur" maxlength="16">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="colorInput">Qahramon rangi (Avatar Tint):</label>
+        <input type="color" id="colorInput" class="form-input" value="#3498db" style="height: 44px; padding: 4px; cursor: pointer;">
+      </div>
+
+      <div style="background: rgba(20, 26, 38, 0.9); border: 1px solid #323e54; border-radius: 8px; padding: 12px; margin-bottom: 18px; font-size: 12px; line-height: 1.6;">
+        <div style="font-weight: bold; color: #f1c40f; margin-bottom: 4px;">🎮 Boshqaruv qo'llanmasi:</div>
+        <div>• <b>WASD</b>: Harakatlanish | <b>Shift</b>: Yugurish (Sprinting)</div>
+        <div>• <b>Sichqoncha Chap (LMB)</b>: Hujum / Daraxt chopish / Tosh qazish / Bino qo'yish</div>
+        <div>• <b>Sichqoncha O'ng (RMB) / E</b>: Sandiqni ochish / Eshikni ochish</div>
+        <div>• <b>I / Tab</b>: 30 katakli Inventar | <b>C</b>: 25 ta Crafting retseptlari</div>
+        <div>• <b>1 – 8</b>: Tezkor paneldagi buyumni tanlash | <b>Esc</b>: Pauza menyusi</div>
+      </div>
+
+      <button id="connectBtn" class="primary-btn">DUNYOGA KIRISH (JOIN WORLD)</button>
+    </div>
+  </div>
+
+  <!-- 2. Pause / Settings Modal (Esc) -->
+  <div class="modal-backdrop hidden" id="pauseModal">
+    <div class="modal-card" style="max-width: 440px; text-align: center;">
+      <h2 style="color: #f39c12; margin-bottom: 14px;">⚙️ PAUZA MENYUSI</h2>
+      <p style="color: #aaa; font-size: 12px; margin-bottom: 18px;">
+        O'yin holati va audio sozlamalari
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="resumeBtn" class="primary-btn" style="background:#27ae60;">O'yinni Davom Ettirish (Resume)</button>
+        <button id="muteBtn" class="cat-btn" style="padding: 10px; font-size: 14px;">🔊 Ovoz: Yoqilgan (Mute)</button>
+        <button id="disconnectBtn" class="cat-btn" style="padding: 10px; font-size: 14px; background:#c0392b; color:#fff;">Bosh Menyuga Qaytish (Exit)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Full Inventory Modal (I / Tab) -->
+  <div class="modal-backdrop hidden" id="inventoryModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🎒 Inventar (30 Katak)</h3>
+        <button class="close-btn" id="closeInvBtn">&times;</button>
+      </div>
+      <div style="font-size: 11px; color: #aaa; margin-bottom: 10px;">
+        💡 <i>Maslahat: Taom yoki eliksirni iste'mol qilish uchun ustiga bosing. Yerga tashlash uchun Shift+Click qiling.</i>
+      </div>
+      <div class="inventory-grid" id="inventoryGrid"></div>
+    </div>
+  </div>
+
+  <!-- 4. Crafting Modal (C) -->
+  <div class="modal-backdrop hidden" id="craftingModal">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3>🔨 Dastgoh & Ishlab Chiqarish (25 ta Retsept)</h3>
+        <button class="close-btn" id="closeCraftBtn">&times;</button>
+      </div>
+      <div class="craft-categories">
+        <button class="cat-btn active" data-cat="all">Barchasi</button>
+        <button class="cat-btn" data-cat="tools">Asboblar</button>
+        <button class="cat-btn" data-cat="weapons">Qurollar</button>
+        <button class="cat-btn" data-cat="building">Qurilish</button>
+        <button class="cat-btn" data-cat="survival">Omon qolish</button>
+        <button class="cat-btn" data-cat="victory">🏆 G'alaba</button>
+      </div>
+      <div class="crafting-list" id="craftingList"></div>
+    </div>
+  </div>
+
+  <!-- 5. Chest Storage Modal (E) -->
+  <div class="modal-backdrop hidden" id="chestModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>📦 Yog'och Sandiq (20 Katak) — Server Tranzaksion Ombor</h3>
+        <button class="close-btn" id="closeChestBtn">&times;</button>
+      </div>
+      <div style="font-size: 11px; color: #2ecc71; margin-bottom: 8px;">
+        🔒 <b>Anti-Duplication Faol:</b> Sandiqdan olishda har bir o'tkazma atomik SQLite tranzaksiyasi orqali himoyalangan.
+      </div>
+      <div class="inventory-grid" id="chestGrid"></div>
+    </div>
+  </div>
+
+  <!-- 6. Respawn Overlay (Death) -->
+  <div class="modal-backdrop hidden" id="respawnOverlay">
+    <div class="modal-card" style="text-align: center; max-width: 420px;">
+      <h2 style="color: #e74c3c; margin-bottom: 10px;">💀 Siz halok bo'ldingiz!</h2>
+      <p style="color: #bdc3c7; font-size: 13px; margin-bottom: 20px;">
+        Salomatligingiz 0 ga tushdi. O'lgan joyingizda qabr toshi qoldi. Boshlang'ich hududda qayta tirilishingiz mumkin.
+      </p>
+      <button id="respawnBtn" class="primary-btn" style="background: linear-gradient(135deg, #c0392b, #e74c3c);">
+        Boshlang'ich Zonalarda Qayta Tirilish (Respawn)
+      </button>
+    </div>
+  </div>
+
+  <!-- 7. Victory Modal (Capstone Monolith Activated) -->
+  <div class="modal-backdrop hidden" id="victoryModal">
+    <div class="modal-card" style="text-align: center; max-width: 500px; border-color: #f1c40f;">
+      <div style="font-size: 48px; margin-bottom: 10px;">🏆</div>
+      <h2 style="color: #f1c40f; margin-bottom: 10px;">G'ALABA! CAPSTONE YAKUNLANDI!</h2>
+      <p id="victoryText" style="color: #ecf0f1; font-size: 14px; line-height: 1.6; margin-bottom: 20px;"></p>
+      <button onclick="document.getElementById('victoryModal').classList.add('hidden')" class="primary-btn">
+        O'yinni Davom Ettirish (Explore Sandbox)
+      </button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="audio.js"></script>
+  <script src="renderer.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>

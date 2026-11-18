@@ -1,0 +1,55 @@
+{
+  "enemies": [
+    {
+      "id": "slime",
+      "name": "Slime",
+      "hp": 35,
+      "speed": 38,
+      "damage": 8,
+      "drops": ["slime_gel", "berry"]
+    },
+    {
+      "id": "zombie",
+      "name": "Zombie Marauder",
+      "hp": 65,
+      "speed": 48,
+      "damage": 14,
+      "drops": ["leather", "raw_meat", "coal"]
+    },
+    {
+      "id": "skeleton",
+      "name": "Skeleton Archer",
+      "hp": 45,
+      "speed": 42,
+      "damage": 12,
+      "is_ranged": true,
+      "drops": ["bone", "arrow", "bow"]
+    },
+    {
+      "id": "scorpion",
+      "name": "Scorched Scorpion",
+      "hp": 75,
+      "speed": 62,
+      "damage": 16,
+      "drops": ["leather", "stone"]
+    },
+    {
+      "id": "boss_treant",
+      "name": "Ancient Treant",
+      "is_boss": true,
+      "hp": 500,
+      "speed": 32,
+      "damage": 26,
+      "drops": ["wood", "stone", "iron_ingot", "health_potion"]
+    },
+    {
+      "id": "boss_wyrm",
+      "name": "Shadow Wyrm",
+      "is_boss": true,
+      "hp": 1200,
+      "speed": 45,
+      "damage": 34,
+      "drops": ["heart_of_realm", "obsidian", "gold_ingot"]
+    }
+  ]
+}
