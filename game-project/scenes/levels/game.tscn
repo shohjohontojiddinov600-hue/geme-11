@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://game_level_scene_godot4"]
+[gd_scene load_steps=19 format=3 uid="uid://game_level_scene_godot4"]
 
 [ext_resource type="Script" path="res://scripts/gameplay/game_level.gd" id="1_level"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/bg_sky.png" id="2_bg_sky"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://scripts/gameplay/player_controller.gd" id="11_player_script"]
 [ext_resource type="Texture2D" path="res://assets/sprites/player.png" id="12_player_tex"]
 [ext_resource type="Texture2D" path="res://assets/sprites/weapon.png" id="13_weapon_tex"]
+[ext_resource type="Script" path="res://scripts/systems/parallax_controller.gd" id="14_parallax"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_Wall"]
 size = Vector2(64, 64)
@@ -33,6 +34,7 @@ radius = 15.0
 script = ExtResource("1_level")
 
 [node name="ParallaxBackground" type="ParallaxBackground" parent="."]
+script = ExtResource("14_parallax")
 
 [node name="ParallaxLayer1" type="ParallaxLayer" parent="ParallaxBackground"]
 motion_scale = Vector2(0.2, 0.2)
