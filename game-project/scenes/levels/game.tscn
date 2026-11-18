@@ -20,8 +20,16 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_Wall"]
 size = Vector2(64, 64)
 
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_1"]
+vertices = PackedVector2Array(-500, -500, 2000, -500, 2000, 1500, -500, 1500)
+polygons = [PackedInt32Array(0, 1, 2, 3)]
+outlines = [PackedVector2Array(-500, -500, 2000, -500, 2000, 1500, -500, 1500)]
+
 [node name="Game" type="Node2D"]
 script = ExtResource("1_level")
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_1")
 
 [node name="BulletPool" type="Node2D" parent="." groups=["bullet_pool"]]
 script = ExtResource("12_pool")
@@ -114,5 +122,3 @@ position = Vector2(850, 450)
 
 [node name="Player" parent="." instance=ExtResource("11_player")]
 position = Vector2(180, 260)
-
-[node name="GameUI" parent="." instance=ExtResource("13_ui")]

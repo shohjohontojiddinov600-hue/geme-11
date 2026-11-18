@@ -1,7 +1,7 @@
 class_name EnemyHumanoid
 extends CharacterBody2D
 
-## Humanoid Dushman (Update 2.0 - Inson anatomiyasi, Taymerli AI va Culling)
+## Humanoid Dushman (Update 2.0 - Inson anatomiyasi, A* Navigatsiya va Culling)
 
 @export var max_hp: float = 60.0
 @export var speed: float = 130.0
@@ -16,9 +16,10 @@ var is_on_screen: bool = true
 @onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
 @onready var anim_player: AnimationPlayer = $AnimationPlayer if has_node("AnimationPlayer") else null
 @onready var notifier: VisibleOnScreenNotifier2D = $VisibleOnScreenNotifier2D if has_node("VisibleOnScreenNotifier2D") else null
+@onready var nav_agent: NavigationAgent2D = $NavigationAgent2D if has_node("NavigationAgent2D") else null
 
 var _ai_timer: float = 0.0
-const AI_TICK_INTERVAL: float = 0.25 # Har 0.25 soniyada AI yangilanadi (Frame drop oldini oladi)
+const AI_TICK_INTERVAL: float = 0.25 # Har 0.25 soniyada AI yo'lni hisoblaydi (Pathfinding optimizatsiyasi)
 
 func _ready() -> void:
 	hp = max_hp
@@ -58,8 +59,14 @@ func _update_ai_target() -> void:
 		var player = players[0] as Node2D
 		var diff = player.global_position - global_position
 		var dist = diff.length()
-		if dist < 600.0: # Ko'rish radiusi
-			target_direction = diff.normalized()
+		if dist < 700.0:
+			# A* Navigatsiya agenti orqali to'siqlarni aylanib o'tish
+			if nav_agent:
+				nav_agent.target_position = player.global_position
+				var next_pos = nav_agent.get_next_path_position()
+				target_direction = (next_pos - global_position).normalized()
+			else:
+				target_direction = diff.normalized()
 		else:
 			target_direction = Vector2.ZERO
 	else:
@@ -87,13 +94,13 @@ func take_damage(amount: float) -> void:
 		_die()
 
 func _die() -> void:
-	# O'lganda tasodifiy loot tashlash (30% ehtimollik bilan tanga)
+	# O'lganda tasodifiy loot tashlash (40% ehtimollik bilan tanga)
 	if randf() < 0.4:
 		var coin_scene = load("res://scenes/objects/coin.tscn")
 		if coin_scene:
 			var coin = coin_scene.instantiate() as Node2D
 			coin.global_position = global_position
-			get_tree().current_scene.add_child(coin)
+			get_tree().current_scene.call_deferred("add_child", coin)
 
 	queue_free()
 
