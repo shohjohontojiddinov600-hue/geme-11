@@ -14,7 +14,7 @@ func _ready() -> void:
 	print("==================================================")
 	print("  MYTHIC REALMS - 2D GAMEPLAY SAHNASI YUKLANDI   ")
 	print("==================================================")
-	print("Boshqaruv: WASD - Harakat | Shift - Yugurish | Sichqoncha - Nishon va O'q otish")
+	print("Boshqaruv: WASD - Harakat | Shift - Sprint | Sichqoncha - Nishon va O'q otish")
 
 func _process(_delta: float) -> void:
 	if is_instance_valid(player):
@@ -26,4 +26,4 @@ func _process(_delta: float) -> void:
 			stamina_bar.max_value = player.max_stamina
 		if stats_label:
 			var enemy_count = enemies_container.get_child_count() if enemies_container else 0
-			stats_label.text = "Tangalar: %d | Ball: %d | Dushmanlar: %d" % [player.coins, player.score, enemy_count]
+			stats_label.text = "Tangalar: %d | Ball: %d | Qurol: Lvl %d | Dushmanlar: %d" % [player.coins, player.score, player.weapon_upgrade_level, enemy_count]
