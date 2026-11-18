@@ -12,13 +12,11 @@ const GameEngine = require('./game');
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
-// Initialize Core Subsystems
 const db = new GameDB();
 const world = new WorldManager(db, 9841235);
 const monsters = new MonsterManager(world);
 const game = new GameEngine(db, world, monsters);
 
-// MIME types for static files
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -28,12 +26,17 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-// Pure Node.js high-speed HTTP static server
 const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
   if (reqPath === '/') reqPath = '/index.html';
 
-  // API endpoint to fetch chunks
+  if (reqPath === '/api/leaderboard') {
+    const top = db.getLeaderboard();
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify(top));
+    return;
+  }
+
   if (reqPath.startsWith('/api/chunk/')) {
     const parts = reqPath.replace('/api/chunk/', '').split('/');
     const cx = parseInt(parts[0], 10);
@@ -46,7 +49,6 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // Health check endpoint
   if (reqPath === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', players: game.players.size, time: game.worldTime }));
@@ -72,7 +74,6 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// Attach WebSocket Server
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
@@ -85,7 +86,8 @@ wss.on('connection', (ws) => {
       if (msg.type === 'JOIN') {
         const username = (msg.username || 'Traveler').trim().slice(0, 16);
         const color = msg.color || '#3498db';
-        const player = game.addPlayer(ws, username, color);
+        const playerClass = msg.playerClass || 'warrior';
+        const player = game.addPlayer(ws, username, color, playerClass);
         boundPlayerId = player.id;
       } else if (msg.type === 'REQUEST_CHUNK') {
         const chunk = world.generateChunk(msg.cx, msg.cy);
@@ -109,7 +111,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Graceful Shutdown & Crash Recovery handler
 function gracefulShutdown(signal) {
   console.log(`\n[Server] Received ${signal}. Flushing state and shutting down...`);
   try {
@@ -130,10 +131,10 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 server.listen(PORT, () => {
   console.log(`====================================================`);
-  console.log(`⚔️  MYTHIC REALMS: 2D MULTIPLAYER SURVIVAL SERVER ⚔️`);
+  console.log(`⚔️  MYTHIC REALMS: MODERN MULTIPLAYER SANDBOX ⚔️`);
   console.log(`====================================================`);
-  console.log(`Status: ONLINE & PERSISTENT (SQLite WAL Mode Active)`);
-  console.log(`Game URL: http://localhost:${PORT}`);
-  console.log(`Tick Rate: 30 Hz | Biomes: 3 | Items: 30 | Recipes: 25`);
+  console.log(`Status: ONLINE & PERSISTENT (SQLite WAL Active)`);
+  console.log(`URL: http://localhost:${PORT}`);
+  console.log(`Tick Rate: 30 Hz | Classes: Warrior, Ranger, Builder`);
   console.log(`====================================================`);
 });

@@ -1,4 +1,4 @@
-// Client Networking, Input Controller and UI Manager for Mythic Realms
+// Modern Client Controller, Networking & UI Engine for Mythic Realms
 (function () {
   const canvas = document.getElementById('gameCanvas');
   const minimapCanvas = document.getElementById('minimapCanvas');
@@ -13,13 +13,12 @@
   let inventory = new Array(30).fill(null);
   let openChest = null;
   let selectedSlot = 0;
+  let selectedClass = 'warrior';
 
-  // Input state
   const keys = { w: false, a: false, s: false, d: false, shift: false };
   let mousePos = { x: 0, y: 0 };
   let currentChunkKey = null;
 
-  // FPS calculation
   let frameCount = 0;
   let lastFpsTime = performance.now();
   let currentFps = 60;
@@ -36,18 +35,22 @@
   const hpFill = document.getElementById('hpFill');
   const hungerFill = document.getElementById('hungerFill');
   const staminaFill = document.getElementById('staminaFill');
+  const expFill = document.getElementById('expFill');
   const hpText = document.getElementById('hpText');
   const hungerText = document.getElementById('hungerText');
   const staminaText = document.getElementById('staminaText');
+  const expText = document.getElementById('expText');
+  const levelTag = document.getElementById('levelTag');
+
   const timeDisplay = document.getElementById('timeDisplay');
   const biomeDisplay = document.getElementById('biomeDisplay');
   const playerNameDisplay = document.getElementById('playerNameDisplay');
   const eventLog = document.getElementById('eventLog');
+  const chatInput = document.getElementById('chatInput');
   const quickslotsContainer = document.getElementById('quickslotsContainer');
   const fpsBadge = document.getElementById('fpsBadge');
   const muteBtn = document.getElementById('muteBtn');
 
-  // Initialize Quickslot action bar (1-8)
   function initQuickslots() {
     quickslotsContainer.innerHTML = '';
     for (let i = 0; i < 8; i++) {
@@ -76,15 +79,16 @@
     }
   }
 
-  // Connect to Game Server
-  function connect(username, color) {
+  function connect(username, color, playerClass) {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${location.host}`);
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'JOIN', username, color }));
+      ws.send(JSON.stringify({ type: 'JOIN', username, color, playerClass }));
       lobbyModal.classList.add('hidden');
-      addLog(`Serverga ulandingiz! Xush kelibsiz, ${username}!`);
+      window.gameAudio?.ensureContext();
+      window.gameAudio?.startBGM();
+      addLog(`Serverga ulandingiz! Qahramon toifasi: ${playerClass.toUpperCase()}`, '#f1c40f');
     };
 
     ws.onmessage = (event) => {
@@ -165,8 +169,26 @@
       }
 
       case 'COMBAT_EFFECT': {
-        renderer.addSlashEffect(msg.x, msg.y, msg.damage);
-        window.gameAudio?.slash();
+        renderer.addSlashEffect(msg.x, msg.y, msg.damage, msg.isCrit);
+        window.gameAudio?.slash(msg.isCrit);
+        break;
+      }
+
+      case 'CHAT_BROADCAST': {
+        addLog(`💬 [${msg.username}]: ${msg.text}`, msg.color || '#ecf0f1');
+        if (msg.playerId) {
+          renderer.setChatBubble(msg.playerId, msg.text);
+        }
+        break;
+      }
+
+      case 'LEVEL_UP': {
+        window.gameAudio?.levelUp();
+        addLog(msg.text, '#f1c40f');
+        const p = gameState.players?.find(x => x.id === msg.playerId);
+        if (p) {
+          renderer.addLevelUpEffect(p.x, p.y);
+        }
         break;
       }
 
@@ -193,6 +215,12 @@
     hpFill.style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
     hungerFill.style.width = `${Math.max(0, p.hunger)}%`;
     staminaFill.style.width = `${Math.max(0, p.stamina)}%`;
+
+    const reqExp = (p.level || 1) * 80;
+    const curExp = p.exp || 0;
+    expFill.style.width = `${Math.min(100, (curExp / reqExp) * 100)}%`;
+    expText.textContent = `${curExp}/${reqExp}`;
+    levelTag.textContent = `Lv.${p.level || 1}`;
 
     hpText.textContent = `${p.hp}/${p.maxHp}`;
     hungerText.textContent = `${p.hunger}/100`;
@@ -379,13 +407,38 @@
     entry.style.borderLeftColor = color;
     entry.textContent = text;
     eventLog.appendChild(entry);
-    if (eventLog.children.length > 5) {
+    if (eventLog.children.length > 6) {
       eventLog.removeChild(eventLog.firstChild);
     }
   }
 
+  function sendChatMessage() {
+    const text = chatInput.value.trim();
+    if (text && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'CHAT_SEND', text }));
+      chatInput.value = '';
+    }
+    chatInput.blur();
+  }
+
   // Keyboard and Input Events
   window.addEventListener('keydown', (e) => {
+    // If typing in chat, don't move
+    if (document.activeElement === chatInput) {
+      if (e.key === 'Enter') {
+        sendChatMessage();
+      } else if (e.key === 'Escape') {
+        chatInput.blur();
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      chatInput.focus();
+      return;
+    }
+
     if (e.key === 'Tab' || e.key.toLowerCase() === 'i') {
       e.preventDefault();
       inventoryModal.classList.toggle('hidden');
@@ -407,7 +460,6 @@
           openChest = null;
         }
       } else {
-        // Toggle Pause menu
         pauseModal.classList.toggle('hidden');
       }
     } else if (e.key >= '1' && e.key <= '8') {
@@ -423,6 +475,7 @@
   });
 
   window.addEventListener('keyup', (e) => {
+    if (document.activeElement === chatInput) return;
     if (e.key.toLowerCase() === 'w') keys.w = false;
     if (e.key.toLowerCase() === 'a') keys.a = false;
     if (e.key.toLowerCase() === 's') keys.s = false;
@@ -465,6 +518,7 @@
 
   // Mouse Clicks on Canvas
   canvas.addEventListener('mousedown', (e) => {
+    if (document.activeElement === chatInput) chatInput.blur();
     if (!localPlayer || !ws || ws.readyState !== WebSocket.OPEN) return;
 
     const screenCenterX = window.innerWidth / 2;
@@ -501,12 +555,86 @@
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // Lobby Form
+  // Lobby Menu Tabs Logic
+  document.querySelectorAll('.menu-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.menu-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+      btn.classList.add('active');
+      const targetId = btn.dataset.tab;
+      document.getElementById(targetId)?.classList.remove('hidden');
+
+      if (targetId === 'leadTab') {
+        loadLeaderboard();
+      }
+    });
+  });
+
+  // Class Selection Cards
+  document.querySelectorAll('.class-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedClass = card.dataset.class;
+    });
+  });
+
+  // Lobby Join Button
   document.getElementById('connectBtn').addEventListener('click', () => {
     const name = document.getElementById('usernameInput').value || 'Qahramon';
     const color = document.getElementById('colorInput').value || '#3498db';
-    connect(name, color);
+    connect(name, color, selectedClass);
   });
+
+  // Chat Send Button
+  document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+
+  // Settings Handlers
+  document.getElementById('volumeSlider')?.addEventListener('input', (e) => {
+    window.gameAudio?.setVolume(parseFloat(e.target.value));
+  });
+
+  const toggleMusicBtn = document.getElementById('toggleMusicBtn');
+  toggleMusicBtn?.addEventListener('click', () => {
+    const active = window.gameAudio?.toggleMusic();
+    toggleMusicBtn.textContent = active ? '🎵 Yoqilgan' : '🔇 O\'chirilgan';
+    toggleMusicBtn.classList.toggle('active', active);
+  });
+
+  const toggleSfxBtn = document.getElementById('toggleSfxBtn');
+  toggleSfxBtn?.addEventListener('click', () => {
+    const isMuted = window.gameAudio?.toggleMute();
+    toggleSfxBtn.textContent = isMuted ? '🔇 O\'chirilgan' : '🔊 Yoqilgan';
+    toggleSfxBtn.classList.toggle('active', !isMuted);
+  });
+
+  function loadLeaderboard() {
+    fetch('/api/leaderboard')
+      .then(res => res.json())
+      .then(data => {
+        const tbody = document.getElementById('leaderboardBody');
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="padding:14px; text-align:center;">Hali o\'yinchilar yo\'q.</td></tr>';
+          return;
+        }
+        data.forEach((p, idx) => {
+          const row = document.createElement('tr');
+          row.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+          row.innerHTML = `
+            <td style="padding:8px; font-weight:bold; color:#f1c40f;">${idx + 1}</td>
+            <td style="font-weight:600;">${p.username}</td>
+            <td>Lv.${p.level || 1}</td>
+            <td style="color:#e74c3c;">${p.kills || 0}</td>
+            <td style="color:#3498db; font-weight:bold;">${p.score || 0}</td>
+            <td>${p.has_won ? '🏆 G\'olibi' : '⏳ Tirik'}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      })
+      .catch(() => {});
+  }
 
   // Pause Menu Buttons
   document.getElementById('menuBtn').addEventListener('click', () => {

@@ -39,24 +39,27 @@ class GameEngine {
     this.saveAll();
   }
 
-  // Add / Connect player
-  addPlayer(ws, username, color = '#3498db') {
-    const dbPlayer = this.db.getOrCreatePlayer(username, color);
+  // Add / Connect player with class support
+  addPlayer(ws, username, color = '#3498db', playerClass = 'warrior') {
+    const dbPlayer = this.db.getOrCreatePlayer(username, color, playerClass);
     const inventory = this.db.getPlayerInventory(dbPlayer.id);
 
     const player = {
       id: dbPlayer.id,
       username: dbPlayer.username,
       color: dbPlayer.color || color,
+      playerClass: dbPlayer.player_class || playerClass,
       x: dbPlayer.x || 0,
       y: dbPlayer.y || 0,
       vx: 0,
       vy: 0,
       facingAngle: 0,
       hp: dbPlayer.hp > 0 ? dbPlayer.hp : 100,
-      maxHp: dbPlayer.max_hp || 100,
+      maxHp: dbPlayer.max_hp || (playerClass === 'warrior' ? 120 : 100),
       hunger: dbPlayer.hunger !== undefined ? dbPlayer.hunger : 100,
       stamina: dbPlayer.stamina !== undefined ? dbPlayer.stamina : 100,
+      level: dbPlayer.level || 1,
+      exp: dbPlayer.exp || 0,
       selectedSlot: 0,
       inventory,
       kills: dbPlayer.kills || 0,
@@ -81,14 +84,20 @@ class GameEngine {
       isNight: this.isNight()
     });
 
-    console.log(`[Player Joined] ${player.username} (ID: ${player.id})`);
+    this.broadcast({
+      type: 'CHAT_BROADCAST',
+      username: 'SYSTEM',
+      color: '#f1c40f',
+      text: `⚔️ [${player.username}] olamga qo'shildi (${player.playerClass.toUpperCase()})!`
+    });
+
+    console.log(`[Player Joined] ${player.username} | Class: ${player.playerClass} | Level: ${player.level}`);
     return player;
   }
 
   removePlayer(playerId) {
     const player = this.players.get(playerId);
     if (player) {
-      // Save player and inventory immediately
       this.db.savePlayer(player);
       this.db.savePlayerInventory(player.id, player.inventory);
 
@@ -98,48 +107,47 @@ class GameEngine {
 
       this.players.delete(playerId);
       this.connections.delete(playerId);
+      this.broadcast({
+        type: 'CHAT_BROADCAST',
+        username: 'SYSTEM',
+        color: '#95a5a6',
+        text: `🚪 [${player.username}] olamdan chiqdi.`
+      });
       console.log(`[Player Left] ${player.username}`);
     }
   }
 
   isNight() {
     const t = this.worldTime % this.dayDuration;
-    return t >= 480; // After 8th minute is night
+    return t >= 480;
   }
 
-  // Central 30Hz Authoritative Tick
   tick() {
     const now = Date.now();
     const dt = (now - this.lastTickTime) / 1000;
     this.lastTickTime = now;
 
-    // Advance World Time
     this.worldTime = (this.worldTime + dt) % this.dayDuration;
 
-    // Survival Tick: Hunger, Starvation & Health Regen (every 2 seconds)
     if (now - this.lastSurvivalTick >= 2000) {
       this.lastSurvivalTick = now;
       this.tickSurvival();
     }
 
-    // Update Player Movement & Collisions
     for (const player of this.players.values()) {
       if (player.hp <= 0) continue;
 
-      // Calculate speed
-      let speed = 110; // base px/s
+      let speed = player.playerClass === 'ranger' ? 125 : 110;
       if (player.isSprinting && player.stamina > 10) {
-        speed = 175;
+        speed = player.playerClass === 'ranger' ? 195 : 175;
         player.stamina = Math.max(0, player.stamina - 4);
       } else {
-        player.stamina = Math.min(100, player.stamina + 2);
+        player.stamina = Math.min(100, player.stamina + 2.5);
       }
 
-      // Desired position
       const nextX = player.x + player.vx * speed * dt;
       const nextY = player.y + player.vy * speed * dt;
 
-      // Collision checks with world obstacles (AABB)
       if (!this.checkTileCollision(nextX, player.y)) {
         player.x = nextX;
       }
@@ -147,7 +155,7 @@ class GameEngine {
         player.y = nextY;
       }
 
-      // Anti-stuck / Anti-softlock safety: if currently trapped inside a solid object, push out
+      // Anti-stuck safety
       if (this.checkTileCollision(player.x, player.y)) {
         const offsets = [[32, 0], [-32, 0], [0, 32], [0, -32]];
         for (const [ox, oy] of offsets) {
@@ -159,11 +167,10 @@ class GameEngine {
         }
       }
 
-      // Check proximity item pickups (radius 28px)
       this.checkItemPickups(player);
     }
 
-    // Update Monsters & Boss AI
+    // Monsters & Bosses update
     this.monsters.update(dt, this.players, this.isNight());
     const deadMobs = this.monsters.checkDeaths();
     for (const dead of deadMobs) {
@@ -171,40 +178,54 @@ class GameEngine {
         const killer = this.players.get(dead.targetPlayerId);
         if (killer) {
           killer.kills = (killer.kills || 0) + 1;
+          const expGain = dead.isBoss ? (dead.type === 'boss_wyrm' ? 600 : 250) : 25;
           killer.score = (killer.score || 0) + (dead.isBoss ? 500 : 25);
+          this.awardExp(killer, expGain);
         }
       }
     }
 
-    // Periodic Database Auto-Save (every 10 seconds)
     if (now - this.lastSaveTime >= 10000) {
       this.lastSaveTime = now;
       this.saveAll();
     }
 
-    // Broadcast Authoritative World State to all connected clients
     this.broadcastState();
   }
 
-  // Survival drain and recovery
+  awardExp(player, expPoints) {
+    player.exp += expPoints;
+    const reqExp = player.level * 80;
+    if (player.exp >= reqExp) {
+      player.level += 1;
+      player.exp -= reqExp;
+      player.maxHp += 15;
+      player.hp = player.maxHp;
+
+      this.broadcast({
+        type: 'LEVEL_UP',
+        playerId: player.id,
+        username: player.username,
+        level: player.level,
+        text: `⭐ Tabriklaymiz! [${player.username}] ${player.level}-darajaga ko'tarildi! (+15 Max HP)`
+      });
+    }
+  }
+
   tickSurvival() {
     for (const player of this.players.values()) {
       if (player.hp <= 0) continue;
 
-      // Hunger loss (-1 every 5s -> -0.4 every 2s)
-      player.hunger = Math.max(0, player.hunger - 0.4);
+      player.hunger = Math.max(0, player.hunger - 0.35);
 
-      // Starvation damage
       if (player.hunger <= 0) {
         player.hp = Math.max(0, player.hp - 2);
       } else if (player.hunger >= 80 && player.hp < player.maxHp) {
-        // Natural regeneration
         player.hp = Math.min(player.maxHp, player.hp + 1.5);
       }
     }
   }
 
-  // World tile collision test
   checkTileCollision(worldX, worldY) {
     const { cx, cy, tileX, tileY } = this.world.getChunkCoordinates(worldX, worldY);
     const chunk = this.world.generateChunk(cx, cy);
@@ -215,10 +236,8 @@ class GameEngine {
     const ground = chunk.tiles[idx];
     const obj = chunk.objects[idx];
 
-    // Water blocks movement unless frozen
     if (ground === 'water') return true;
 
-    // Solid objects block movement
     if (obj) {
       if (obj.type === 'wood_wall' || obj.type === 'stone_wall' || obj.type === 'rock' ||
           obj.type === 'iron_vein' || obj.type === 'gold_vein' || obj.type === 'frost_crystal' ||
@@ -232,7 +251,6 @@ class GameEngine {
     return false;
   }
 
-  // Check and absorb ground item drops
   checkItemPickups(player) {
     for (const [dropId, drop] of this.world.drops.entries()) {
       const dist = Math.hypot(player.x - drop.x, player.y - drop.y);
@@ -250,14 +268,12 @@ class GameEngine {
     }
   }
 
-  // Safe inventory addition with auto-stacking
   addItemToInventory(player, itemId, count) {
     const itemData = ITEMS[itemId];
     if (!itemData) return false;
 
     let remaining = count;
 
-    // 1. Try stacking in existing slots
     if (itemData.maxStack > 1) {
       for (let i = 0; i < player.inventory.length; i++) {
         const slot = player.inventory[i];
@@ -271,7 +287,6 @@ class GameEngine {
       }
     }
 
-    // 2. Place remaining into empty slots
     if (remaining > 0) {
       for (let i = 0; i < player.inventory.length; i++) {
         if (!player.inventory[i]) {
@@ -290,7 +305,6 @@ class GameEngine {
     return remaining === 0;
   }
 
-  // Handle Player Actions sent via WebSockets
   handleAction(playerId, message) {
     const player = this.players.get(playerId);
     if (!player) return;
@@ -352,6 +366,20 @@ class GameEngine {
         break;
       }
 
+      case 'CHAT_SEND': {
+        const text = (message.text || '').trim().slice(0, 80);
+        if (text) {
+          this.broadcast({
+            type: 'CHAT_BROADCAST',
+            playerId: player.id,
+            username: player.username,
+            color: player.color,
+            text
+          });
+        }
+        break;
+      }
+
       case 'RESPAWN': {
         if (player.hp <= 0) {
           player.hp = player.maxHp;
@@ -366,32 +394,33 @@ class GameEngine {
     }
   }
 
-  // Combat / Attack logic
   processAttack(player, targetX, targetY) {
     const now = Date.now();
-    if (now - player.lastAttackTime < 300) return; // Cooldown
+    if (now - player.lastAttackTime < 280) return;
     player.lastAttackTime = now;
 
     const equipped = player.inventory[player.selectedSlot];
     const itemData = equipped ? ITEMS[equipped.itemId] : null;
 
     let baseDamage = itemData ? (itemData.damage || 5) : 5;
+    if (player.playerClass === 'warrior') baseDamage += 3;
     let attackRange = itemData ? (itemData.attackRange || 45) : 40;
 
     // Ranged attack with Bow
     if (itemData && itemData.isRanged) {
-      // Find arrows in inventory
       let arrowSlotIdx = player.inventory.findIndex(s => s && s.itemId === 'arrow');
       if (arrowSlotIdx === -1) {
         this.send(player.id, { type: 'CHAT_MSG', text: "O'qlar tugagan!", color: '#e74c3c' });
         return;
       }
 
-      // Consume arrow
       player.inventory[arrowSlotIdx].count--;
       if (player.inventory[arrowSlotIdx].count <= 0) {
         player.inventory[arrowSlotIdx] = null;
       }
+
+      const isCrit = Math.random() < 0.20;
+      const finalDmg = isCrit ? Math.round(baseDamage * 1.8) : baseDamage;
 
       this.monsters.spawnProjectile({
         ownerId: player.id,
@@ -400,9 +429,9 @@ class GameEngine {
         y: player.y,
         targetX,
         targetY,
-        speed: 320,
-        damage: baseDamage,
-        color: '#f1c40f',
+        speed: 340,
+        damage: finalDmg,
+        color: isCrit ? '#f1c40f' : '#fff',
         maxRange: attackRange
       });
 
@@ -416,22 +445,25 @@ class GameEngine {
       if (mob.hp <= 0) continue;
       const dist = Math.hypot(mob.x - targetX, mob.y - targetY);
       if (dist <= hitRadius) {
-        mob.hp -= baseDamage;
-        mob.targetPlayerId = player.id; // Aggro
+        const isCrit = Math.random() < 0.20;
+        const finalDmg = isCrit ? Math.round(baseDamage * 1.8) : baseDamage;
 
-        // Monster hurt particle effect broadcast
+        mob.hp -= finalDmg;
+        mob.targetPlayerId = player.id;
+
         this.broadcast({
           type: 'COMBAT_EFFECT',
           effect: 'slash',
+          isCrit,
           x: mob.x,
           y: mob.y,
-          damage: baseDamage
+          damage: finalDmg
         });
         break;
       }
     }
 
-    // Check harvesting world objects (trees, rocks, ores)
+    // Harvesting trees, rocks, ores
     const { cx, cy, tileX, tileY } = this.world.getChunkCoordinates(targetX, targetY);
     const chunk = this.world.generateChunk(cx, cy);
     const localX = ((tileX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
@@ -448,14 +480,15 @@ class GameEngine {
         } else if (itemData && itemData.toolType === 'pickaxe' && (obj.type.includes('vein') || obj.type === 'rock')) {
           toolBonus = itemData.toolLevel === 2 ? 3 : 2;
         }
+        if (player.playerClass === 'builder') toolBonus *= 1.5;
 
         const harvestDamage = Math.round(baseDamage * toolBonus);
         obj.hp -= harvestDamage;
 
         if (obj.hp <= 0) {
-          // Object destroyed: spawn harvest loot
           this.world.modifyObject(tileX * TILE_SIZE + 16, tileY * TILE_SIZE + 16, null);
           this.spawnHarvestLoot(obj.type, tileX * TILE_SIZE + 16, tileY * TILE_SIZE + 16);
+          this.awardExp(player, 5);
         } else {
           this.world.modifyObject(tileX * TILE_SIZE + 16, tileY * TILE_SIZE + 16, obj);
         }
@@ -488,14 +521,12 @@ class GameEngine {
     }
   }
 
-  // Use consumable or place building
   processUseItem(player, slotIndex, targetX, targetY) {
     const slot = player.inventory[slotIndex];
     if (!slot) return;
     const itemData = ITEMS[slot.itemId];
     if (!itemData) return;
 
-    // Consumables (Food, Potion)
     if (itemData.category === 'food' || itemData.category === 'potion') {
       if (itemData.foodVal) {
         player.hunger = Math.min(100, player.hunger + itemData.foodVal);
@@ -510,7 +541,6 @@ class GameEngine {
       return;
     }
 
-    // Building Placement
     if (itemData.placeTile) {
       const dist = Math.hypot(player.x - targetX, player.y - targetY);
       if (dist > 120) {
@@ -529,7 +559,6 @@ class GameEngine {
         return;
       }
 
-      // Check Monolith placement (Capstone Victory condition!)
       if (itemData.placeTile === 'monolith') {
         player.hasWon = true;
         this.broadcast({
@@ -539,7 +568,6 @@ class GameEngine {
         });
       }
 
-      // Place object
       const newObj = {
         type: itemData.placeTile,
         hp: itemData.hp || 100,
@@ -550,7 +578,6 @@ class GameEngine {
 
       this.world.modifyObject(tileX * TILE_SIZE + 16, tileY * TILE_SIZE + 16, newObj);
 
-      // Consume item from inventory
       slot.count--;
       if (slot.count <= 0) player.inventory[slotIndex] = null;
 
@@ -564,21 +591,18 @@ class GameEngine {
     }
   }
 
-  // Crafting System (25 recipes)
   processCrafting(player, recipeId) {
     const recipe = RECIPES.find(r => r.id === recipeId);
     if (!recipe) return;
 
-    // Check Workbench requirement
     if (recipe.reqWorkbench) {
       const nearWorkbench = this.isNearPlacedObject(player.x, player.y, 'workbench', 75);
       if (!nearWorkbench) {
-        this.send(player.id, { type: 'CHAT_MSG', text: "Ushbu buyum uchun Dastgoh (Workbench) yonida bo'lish kerak!", color: '#e74c3c' });
+        this.send(player.id, { type: 'CHAT_MSG', text: "Dastgoh (Workbench) yonida bo'lish kerak!", color: '#e74c3c' });
         return;
       }
     }
 
-    // Check ingredients
     for (const ing of recipe.ingredients) {
       let countFound = 0;
       for (const slot of player.inventory) {
@@ -592,7 +616,6 @@ class GameEngine {
       }
     }
 
-    // Deduct ingredients atomically
     for (const ing of recipe.ingredients) {
       let remainingToDeduct = ing.count;
       for (let i = 0; i < player.inventory.length; i++) {
@@ -607,8 +630,8 @@ class GameEngine {
       }
     }
 
-    // Add crafted result
     this.addItemToInventory(player, recipe.result, recipe.count);
+    this.awardExp(player, 10);
     this.send(player.id, {
       type: 'INVENTORY_UPDATE',
       inventory: player.inventory,
@@ -638,7 +661,6 @@ class GameEngine {
     return false;
   }
 
-  // Interacting with world objects (doors, chests)
   processInteract(player, tileX, tileY) {
     const objX = tileX * TILE_SIZE + 16;
     const objY = tileY * TILE_SIZE + 16;
@@ -689,7 +711,6 @@ class GameEngine {
     }
   }
 
-  // Anti-Duplication Atomic Chest Transfer Protocol
   processChestTransfer(player, message) {
     const { chestId, fromType, fromSlot, toType, toSlot, count } = message;
     if (!chestId || player.openChestId !== chestId) return;
@@ -705,26 +726,22 @@ class GameEngine {
 
     const transferAmount = count || srcItem.count;
 
-    // Deduct from source
     srcItem.count -= transferAmount;
     const movedItemId = srcItem.itemId;
     if (srcItem.count <= 0) {
       srcArr[fromSlot] = null;
     }
 
-    // Add to destination
     if (!dstArr[toSlot]) {
       dstArr[toSlot] = { itemId: movedItemId, count: transferAmount };
     } else if (dstArr[toSlot].itemId === movedItemId) {
       dstArr[toSlot].count += transferAmount;
     } else {
-      // Swap slots
       const temp = dstArr[toSlot];
       dstArr[toSlot] = { itemId: movedItemId, count: transferAmount };
       srcArr[fromSlot] = temp;
     }
 
-    // Execute Atomic SQLite Transaction (ACID)
     const success = this.db.atomicTransfer({
       playerId: player.id,
       playerSlots,
@@ -735,7 +752,6 @@ class GameEngine {
     if (success) {
       player.inventory = playerSlots;
 
-      // Broadcast chest state to all players viewing this chest
       const viewers = this.activeChestSessions.get(chestId);
       if (viewers) {
         for (const vId of viewers) {
@@ -754,7 +770,6 @@ class GameEngine {
     }
   }
 
-  // Drop item to ground
   processDropItem(player, slotIndex, count) {
     const slot = player.inventory[slotIndex];
     if (!slot) return;
@@ -781,6 +796,7 @@ class GameEngine {
       id: p.id,
       username: p.username,
       color: p.color,
+      playerClass: p.playerClass,
       x: Math.round(p.x),
       y: Math.round(p.y),
       vx: p.vx,
@@ -790,6 +806,8 @@ class GameEngine {
       maxHp: p.maxHp,
       hunger: Math.round(p.hunger),
       stamina: Math.round(p.stamina),
+      level: p.level || 1,
+      exp: p.exp || 0,
       selectedSlot: p.selectedSlot,
       kills: p.kills,
       score: p.score,
@@ -797,7 +815,6 @@ class GameEngine {
     };
   }
 
-  // Broadcast delta state packet at 30 Hz
   broadcastState() {
     const playersArr = Array.from(this.players.values()).map(p => this.sanitizePlayer(p));
     const monstersArr = Array.from(this.monsters.monsters.values()).map(m => ({
@@ -826,7 +843,7 @@ class GameEngine {
 
     const json = JSON.stringify(payload);
     for (const ws of this.connections.values()) {
-      if (ws.readyState === 1) { // OPEN
+      if (ws.readyState === 1) {
         ws.send(json);
       }
     }

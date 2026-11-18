@@ -13,10 +13,13 @@
 
   <!-- In-game HUD Overlay -->
   <div id="hudOverlay">
-    <!-- Top Left Player Stats -->
+    <!-- Top Left Player Stats Card -->
     <div class="stats-panel hud-interactive">
       <div class="player-header">
-        <span id="playerNameDisplay">Qahramon</span>
+        <div style="display:flex; align-items:center;">
+          <span class="level-tag" id="levelTag">Lv.1</span>
+          <span id="playerNameDisplay">Qahramon</span>
+        </div>
         <span style="font-size: 11px; color: #2ecc71;" id="fpsBadge">● 60 FPS | 30Hz</span>
       </div>
 
@@ -46,6 +49,15 @@
         </div>
         <div class="stat-bar"><div id="staminaFill" class="stat-fill stamina-fill"></div></div>
       </div>
+
+      <!-- EXP Bar -->
+      <div class="stat-bar-container">
+        <div class="stat-bar-label">
+          <span>⭐ Tajriba (EXP)</span>
+          <span id="expText">0/80</span>
+        </div>
+        <div class="stat-bar"><div id="expFill" class="stat-fill exp-fill"></div></div>
+      </div>
     </div>
 
     <!-- Top Center World & Time Status -->
@@ -53,7 +65,7 @@
       <span id="timeDisplay">☀️ Kun (02:00)</span>
       <span style="color: #7f8c8d;">|</span>
       <span id="biomeDisplay">🌲 Yashil O'rmon (Whispering Woods)</span>
-      <button id="menuBtn" class="cat-btn hud-interactive" style="margin-left: 8px; padding: 2px 8px;">⚙️ Pauza</button>
+      <button id="menuBtn" class="cat-btn hud-interactive" style="margin-left: 8px; padding: 3px 10px;">⚙️ Menyu</button>
     </div>
 
     <!-- Top Right Mini-Map -->
@@ -65,8 +77,14 @@
     <!-- Bottom Center Action Quickslots (1-8) -->
     <div class="action-bar-container hud-interactive" id="quickslotsContainer"></div>
 
-    <!-- Bottom Left Chat / Event Log -->
-    <div class="event-log" id="eventLog"></div>
+    <!-- Bottom Left Chat & Event Log -->
+    <div class="chat-container hud-interactive">
+      <div class="event-log" id="eventLog"></div>
+      <div class="chat-input-bar">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Xabar yozing (Enter)..." maxlength="80">
+        <button id="chatSendBtn" class="cat-btn" style="background:#3498db; color:#fff;">Yuborish</button>
+      </div>
+    </div>
 
     <!-- Mobile Virtual Touch Controls -->
     <div class="mobile-controls">
@@ -82,43 +100,120 @@
     </div>
   </div>
 
-  <!-- 1. Lobby / Character Create Modal -->
+  <!-- 1. Modern AAA Main Menu Modal -->
   <div class="modal-backdrop" id="lobbyModal">
     <div class="modal-card">
       <div class="modal-header">
         <div>
-          <h2 style="color: #f39c12; font-size: 20px;">⚔️ MYTHIC REALMS</h2>
-          <div style="font-size: 12px; color: #3498db; margin-top: 2px;">2D Multiplayer Survival & Crafting Sandbox — Capstone Loyiha</div>
+          <h2 style="color: #f1c40f; font-size: 24px; letter-spacing: 1px;">⚔️ MYTHIC REALMS</h2>
+          <div style="font-size: 13px; color: #3498db; margin-top: 3px;">2D Multiplayer Survival Sandbox — Final Capstone Project</div>
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="usernameInput">O'yinchi nomi (Character Name):</label>
-        <input type="text" id="usernameInput" class="form-input" placeholder="Ismingizni kiriting..." value="Jasur" maxlength="16">
+      <!-- Navigation Tabs -->
+      <div class="menu-nav-tabs">
+        <button class="menu-tab-btn active" data-tab="playTab">🎮 O'yinga Kirish</button>
+        <button class="menu-tab-btn" data-tab="guideTab">📜 Qo'llanma</button>
+        <button class="menu-tab-btn" data-tab="leadTab">🏆 Reyting</button>
+        <button class="menu-tab-btn" data-tab="settingsTab">⚙️ Sozlamalar</button>
+        <button class="menu-tab-btn" data-tab="aboutTab">ℹ️ Loyiha Haqida</button>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="colorInput">Qahramon rangi (Avatar Tint):</label>
-        <input type="color" id="colorInput" class="form-input" value="#3498db" style="height: 44px; padding: 4px; cursor: pointer;">
+      <!-- Tab 1: Play / Character Creation -->
+      <div id="playTab" class="tab-content">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div class="form-group">
+            <label class="form-label" for="usernameInput">Qahramon nomi:</label>
+            <input type="text" id="usernameInput" class="form-input" placeholder="Nom kiriting..." value="Jasur" maxlength="16">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="colorInput">Avatar rangi:</label>
+            <input type="color" id="colorInput" class="form-input" value="#3498db" style="height: 44px; padding: 4px; cursor: pointer;">
+          </div>
+        </div>
+
+        <label class="form-label" style="margin-bottom: 8px;">Qahramon toifasini tanlang (Class):</label>
+        <div class="class-cards-container">
+          <div class="class-card selected" data-class="warrior">
+            <div class="class-icon">🗡️</div>
+            <div class="class-title">Jangchi (Warrior)</div>
+            <div class="class-desc">+20 HP, kuchli qilich zarbasi va temir sovut bilan boshlaydi.</div>
+          </div>
+          <div class="class-card" data-class="ranger">
+            <div class="class-icon">🏹</div>
+            <div class="class-title">Mergan (Ranger)</div>
+            <div class="class-desc">+15% tezlik, kamon va 32 ta o'q bilan masofadan jang qiladi.</div>
+          </div>
+          <div class="class-card" data-class="builder">
+            <div class="class-icon">⛏️</div>
+            <div class="class-title">Konchi (Builder)</div>
+            <div class="class-desc">2x tez qazish, tosh cho'kich va 40 ta qurilish bloklari bilan boshlaydi.</div>
+          </div>
+        </div>
+
+        <button id="connectBtn" class="primary-btn">DUNYOGA KIRISH (ENTER WORLD)</button>
       </div>
 
-      <div style="background: rgba(20, 26, 38, 0.9); border: 1px solid #323e54; border-radius: 8px; padding: 12px; margin-bottom: 18px; font-size: 12px; line-height: 1.6;">
-        <div style="font-weight: bold; color: #f1c40f; margin-bottom: 4px;">🎮 Boshqaruv qo'llanmasi:</div>
-        <div>• <b>WASD</b>: Harakatlanish | <b>Shift</b>: Yugurish (Sprinting)</div>
-        <div>• <b>Sichqoncha Chap (LMB)</b>: Hujum / Daraxt chopish / Tosh qazish / Bino qo'yish</div>
-        <div>• <b>Sichqoncha O'ng (RMB) / E</b>: Sandiqni ochish / Eshikni ochish</div>
-        <div>• <b>I / Tab</b>: 30 katakli Inventar | <b>C</b>: 25 ta Crafting retseptlari</div>
-        <div>• <b>1 – 8</b>: Tezkor paneldagi buyumni tanlash | <b>Esc</b>: Pauza menyusi</div>
+      <!-- Tab 2: Game Guide -->
+      <div id="guideTab" class="tab-content hidden" style="font-size: 13px; line-height: 1.6; max-height: 380px; overflow-y: auto;">
+        <h4 style="color:#f1c40f; margin-bottom: 6px;">🌍 Olam va Biomlar:</h4>
+        <p>• <b>Yashil O'rmon (Whispering Woods):</b> Mo'l yog'och, tosh, rezavorlar. Slime va Zombie dushmanlari. 1-Boss: <i>Ancient Treant</i>.</p>
+        <p>• <b>Quruq Cho'l (Scorched Sands):</b> Oltin qumi, kaktuslar va zaharli Chayonlar.</p>
+        <p>• <b>Muzlagan G'orlar (Frozen Caverns):</b> Temir, muz kristallari, obsidian va 2-Final Boss: <i>Shadow Wyrm</i>.</p>
+        <h4 style="color:#f1c40f; margin: 12px 0 6px 0;">🎮 Boshqaruv Tugmalari:</h4>
+        <p>• <b>WASD</b>: Harakatlanish | <b>Shift</b>: Yugurish (Sprint)</p>
+        <p>• <b>Sichqoncha Chap (LMB)</b>: Hujum / Qazish / Bino qo'yish | <b>O'ng (RMB) / E</b>: Sandiq yoki Eshikni ochish</p>
+        <p>• <b>I / Tab</b>: 30 katakli Inventar | <b>C</b>: 25 ta Crafting retseptlari | <b>Enter</b>: Chat</p>
       </div>
 
-      <button id="connectBtn" class="primary-btn">DUNYOGA KIRISH (JOIN WORLD)</button>
+      <!-- Tab 3: Leaderboard -->
+      <div id="leadTab" class="tab-content hidden" style="max-height: 380px; overflow-y: auto;">
+        <table style="width:100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--panel-border); color: var(--accent-gold);">
+              <th style="padding: 8px;">#</th>
+              <th>O'yinchi</th>
+              <th>Daraja</th>
+              <th>Kills</th>
+              <th>Ochko</th>
+              <th>G'alaba</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody">
+            <tr><td colspan="6" style="padding:14px; text-align:center; color:#aaa;">Yuklanmoqda...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 4: Settings -->
+      <div id="settingsTab" class="tab-content hidden" style="font-size: 13px;">
+        <div style="margin-bottom: 16px;">
+          <label class="form-label">Asosiy Ovoz Balandligi:</label>
+          <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.8" style="width: 100%;">
+        </div>
+        <div style="margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Musiqa (Ambient Synth BGM):</span>
+          <button id="toggleMusicBtn" class="cat-btn active">🎵 Yoqilgan</button>
+        </div>
+        <div style="margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Ovoz Effektlari (SFX):</span>
+          <button id="toggleSfxBtn" class="cat-btn active">🔊 Yoqilgan</button>
+        </div>
+      </div>
+
+      <!-- Tab 5: About -->
+      <div id="aboutTab" class="tab-content hidden" style="font-size: 13px; line-height: 1.6;">
+        <h4 style="color:#f1c40f; margin-bottom: 6px;">Loyiha Maqsadi</h4>
+        <p>Ushbu loyiha axborot tizimlari muhandisligi (KIUT ISE) bo'yicha yakuniy Capstone loyihasi bo'lib, Server-Authoritative arxitekturasi, SQLite WAL doimiy saqlash, item duplikatsiyasiga qarshi atomik tranzaksiyalar va protsedurali multiplayer survival sandbox tizimini o'z ichiga oladi.</p>
+        <p style="margin-top: 10px; color:#aaa;">Texnologiyalar: Node.js 26, WebSockets, HTML5 Canvas 60 FPS, Web Audio API, Godot 4.x.</p>
+      </div>
     </div>
   </div>
 
   <!-- 2. Pause / Settings Modal (Esc) -->
   <div class="modal-backdrop hidden" id="pauseModal">
     <div class="modal-card" style="max-width: 440px; text-align: center;">
-      <h2 style="color: #f39c12; margin-bottom: 14px;">⚙️ PAUZA MENYUSI</h2>
+      <h2 style="color: #f1c40f; margin-bottom: 14px;">⚙️ PAUZA MENYUSI</h2>
       <p style="color: #aaa; font-size: 12px; margin-bottom: 18px;">
         O'yin holati va audio sozlamalari
       </p>

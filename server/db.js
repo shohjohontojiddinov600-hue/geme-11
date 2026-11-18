@@ -27,18 +27,26 @@ class GameDB {
         id TEXT PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         color TEXT DEFAULT '#3498db',
+        player_class TEXT DEFAULT 'warrior',
         x REAL DEFAULT 0,
         y REAL DEFAULT 0,
         hp INTEGER DEFAULT 100,
         max_hp INTEGER DEFAULT 100,
         hunger INTEGER DEFAULT 100,
         stamina INTEGER DEFAULT 100,
+        level INTEGER DEFAULT 1,
+        exp INTEGER DEFAULT 0,
         kills INTEGER DEFAULT 0,
         score INTEGER DEFAULT 0,
         has_won INTEGER DEFAULT 0,
         updated_at INTEGER NOT NULL
       );
     `);
+
+    // Safe migration in case columns don't exist
+    try { this.db.exec("ALTER TABLE players ADD COLUMN level INTEGER DEFAULT 1;"); } catch(e) {}
+    try { this.db.exec("ALTER TABLE players ADD COLUMN exp INTEGER DEFAULT 0;"); } catch(e) {}
+    try { this.db.exec("ALTER TABLE players ADD COLUMN player_class TEXT DEFAULT 'warrior';"); } catch(e) {}
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS player_inventory (
@@ -82,7 +90,7 @@ class GameDB {
     `);
   }
 
-  getOrCreatePlayer(username, defaultColor = '#3498db') {
+  getOrCreatePlayer(username, defaultColor = '#3498db', playerClass = 'warrior') {
     const findStmt = this.db.prepare('SELECT * FROM players WHERE username = ?');
     const existing = findStmt.get(username);
     if (existing) {
@@ -91,23 +99,47 @@ class GameDB {
 
     const id = crypto.randomUUID();
     const now = Date.now();
+    const maxHp = playerClass === 'warrior' ? 120 : 100;
     const insertStmt = this.db.prepare(`
-      INSERT INTO players (id, username, color, x, y, hp, max_hp, hunger, stamina, kills, score, has_won, updated_at)
-      VALUES (?, ?, ?, 0, 0, 100, 100, 100, 100, 0, 0, 0, ?)
+      INSERT INTO players (id, username, color, player_class, x, y, hp, max_hp, hunger, stamina, level, exp, kills, score, has_won, updated_at)
+      VALUES (?, ?, ?, ?, 0, 0, ?, ?, 100, 100, 1, 0, 0, 0, 0, ?)
     `);
-    insertStmt.run(id, username, defaultColor, now);
+    insertStmt.run(id, username, defaultColor, playerClass, maxHp, maxHp, now);
 
-    this.giveStarterKit(id);
+    this.giveStarterKit(id, playerClass);
     return this.db.prepare('SELECT * FROM players WHERE id = ?').get(id);
   }
 
-  giveStarterKit(playerId) {
-    const starterItems = [
-      { slot: 0, item: 'wooden_axe', count: 1 },
-      { slot: 1, item: 'wooden_sword', count: 1 },
-      { slot: 2, item: 'berry', count: 5 },
-      { slot: 3, item: 'torch', count: 4 }
-    ];
+  giveStarterKit(playerId, playerClass = 'warrior') {
+    let starterItems = [];
+
+    if (playerClass === 'ranger') {
+      starterItems = [
+        { slot: 0, item: 'bow', count: 1 },
+        { slot: 1, item: 'arrow', count: 32 },
+        { slot: 2, item: 'wooden_axe', count: 1 },
+        { slot: 3, item: 'berry', count: 8 },
+        { slot: 4, item: 'torch', count: 4 }
+      ];
+    } else if (playerClass === 'builder') {
+      starterItems = [
+        { slot: 0, item: 'stone_pickaxe', count: 1 },
+        { slot: 1, item: 'wooden_axe', count: 1 },
+        { slot: 2, item: 'wood', count: 24 },
+        { slot: 3, item: 'stone', count: 16 },
+        { slot: 4, item: 'torch', count: 8 },
+        { slot: 5, item: 'berry', count: 6 }
+      ];
+    } else {
+      // Warrior
+      starterItems = [
+        { slot: 0, item: 'wooden_sword', count: 1 },
+        { slot: 1, item: 'wooden_axe', count: 1 },
+        { slot: 2, item: 'iron_armor', count: 1 },
+        { slot: 3, item: 'berry', count: 6 },
+        { slot: 4, item: 'torch', count: 4 }
+      ];
+    }
 
     const insertStmt = this.db.prepare(`
       INSERT OR REPLACE INTO player_inventory (id, player_id, slot_idx, item_id, count, durability)
@@ -122,7 +154,7 @@ class GameDB {
   savePlayer(player) {
     const updateStmt = this.db.prepare(`
       UPDATE players
-      SET x = ?, y = ?, hp = ?, max_hp = ?, hunger = ?, stamina = ?, kills = ?, score = ?, has_won = ?, updated_at = ?
+      SET x = ?, y = ?, hp = ?, max_hp = ?, hunger = ?, stamina = ?, level = ?, exp = ?, kills = ?, score = ?, has_won = ?, updated_at = ?
       WHERE id = ?
     `);
     updateStmt.run(
@@ -132,12 +164,18 @@ class GameDB {
       player.maxHp || 100,
       Math.round(player.hunger),
       Math.round(player.stamina),
+      player.level || 1,
+      player.exp || 0,
       player.kills || 0,
       player.score || 0,
       player.hasWon ? 1 : 0,
       Date.now(),
       player.id
     );
+  }
+
+  getLeaderboard() {
+    return this.db.prepare('SELECT username, level, kills, score, has_won FROM players ORDER BY score DESC, kills DESC LIMIT 10').all();
   }
 
   getPlayerInventory(playerId) {
@@ -251,7 +289,6 @@ class GameDB {
     }
   }
 
-  // Atomically transfer items between Player and Chest with zero race condition (Anti-Duplication)
   atomicTransfer({ playerId, playerSlots, chestId, chestSlots }) {
     this.db.exec('BEGIN IMMEDIATE TRANSACTION;');
     try {
