@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://health_kit_reward_scene"]
+
+[ext_resource type="Script" path="res://scripts/gameplay/health_kit.gd" id="1_health_kit"]
+[ext_resource type="Texture2D" path="res://assets/sprites/health_kit.png" id="2_health_kit_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(24, 24)
+
+[node name="HealthKit" type="Area2D" groups=["rewards"]]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_health_kit")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_health_kit_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")

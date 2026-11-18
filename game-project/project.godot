@@ -9,7 +9,7 @@ config_version=5
 config/name="Mythic Realms — 2D Multiplayer Survival Sandbox"
 config/description="Capstone 12-loyiha: 2D ko'p o'yinchili survival, crafting va persistent sandbox o'yini"
 config/version="1.0.0"
-run/main_scene="res://scenes/main/main.tscn"
+run/main_scene="res://scenes/levels/game.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 config/icon="res://assets/sprites/icon.svg"
 

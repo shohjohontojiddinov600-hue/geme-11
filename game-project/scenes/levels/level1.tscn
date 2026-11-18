@@ -1,0 +1,5 @@
+[gd_scene load_steps=2 format=3 uid="uid://level1_scene_godot4"]
+
+[ext_resource type="PackedScene" path="res://scenes/levels/game.tscn" id="1_game"]
+
+[node name="Level1" instance=ExtResource("1_game")]
